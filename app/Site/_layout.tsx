@@ -70,6 +70,17 @@ export default function SiteLayout(){
                     }
                 }}
             />
+            <Tabs.Screen
+                name="Details/[type]/[id]"
+                options={{
+                    title: "Details",
+                    tabBarStyle:{
+                        display: 'none',
+                    },
+                    href: null,
+                }}
+                
+            />
         </Tabs>
     );
 }
