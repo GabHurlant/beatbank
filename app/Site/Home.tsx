@@ -3,11 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from "react";
 import TextUi from "@/components/ui/TextUi";
 import SearchBar from "@/components/ui/ShearchBar";
+import { Link } from "expo-router";
 
 export default function Home(){
     const [token, setToken] = useState("");
     const [search, setSearch] = useState("");
     const [data, setData] = useState({});
+    const [fact, setFact] = useState({});
+
+    const [controllersAlbumsSearch, setControllersAlbumsSearch]= useState<AbortController[]>([]);
+    const [controllersFact, setControllersFact]= useState<AbortController[]>([]);
+    const [intervalsFact, setIntervalFact] = useState<NodeJS.Timeout[]>([]);
 
     const getToken=async ()=>{
         const tokenUser = await AsyncStorage.getItem('token');
@@ -15,13 +21,48 @@ export default function Home(){
             setToken(tokenUser);
         }
     }
+    
+    const clearIntervals= ()=>{
+        intervalsFact.forEach(interval => clearInterval(interval));
+        intervalsFact.length=0;
+    }
 
     console.log(data);
 
+    const factFind= async ()=>{
+        try{
+            const response = await fetch(process.env.EXPO_PUBLIC_API_URL+'facts/alea');
+            const data= await response.json();
+            setFact(data);   
+            clearIntervals();
+            intervalsFact.push(setInterval(factFind, 5000));     
+        }catch(err){
+            console.log(err);
+        }
+    }
+
     const madeSearch= async ()=>{
         try{
-            const response = await fetch(process.env.EXPO_PUBLIC_API_URL+'search/'+search);
-            setData(await response.json());
+            // aborte tous les fetch de search
+            controllersAlbumsSearch.forEach(controller => {
+                controller.abort();
+            });
+            controllersAlbumsSearch.length = 0;
+
+            const controller = new AbortController();
+            controllersAlbumsSearch.push(controller);
+
+            const response = await fetch(process.env.EXPO_PUBLIC_API_URL+'search/albums/'+search+'/0',{
+                signal: controller.signal
+            });
+            const data= await response.json();
+
+            clearIntervals();
+            setFact({});
+
+            setData(data);
+            setControllersAlbumsSearch([]);
+            
         }
         catch(err){
             console.log(err);
@@ -29,7 +70,13 @@ export default function Home(){
     }
 
     const searchText=()=>{
-        search.length >= 1 ? madeSearch() : setData({});
+        if(search.length >= 1){
+            factFind();
+            madeSearch()
+        }
+        else{
+            setData({});
+        }
     }
 
     useEffect(()=>{
@@ -56,48 +103,40 @@ export default function Home(){
                 height: '80%',
             }}>
                 <View style={{
+                    height: "100%",
                     gap: 20,
-                }}>
-                    <View>
-                        <Text>Artiste</Text>
-                    {
-                        data.artistes && data.artistes.length > 0 ?
-                            data.artistes.map((artiste: any, index: number)=>(
-                                <Text key={index}>{artiste.pseudo}</Text>
-                            ))
-                        : null
-                    }
-                    </View>
-                    <View>
-                        <Text>Albums</Text>
-                    {
-                        data.albums && data.albums.length > 0 ?
-                            data.albums.map((album: any, index: number)=>(
-                                <Text key={index}>{album.nom}</Text>
-                            ))
-                        : null
-                    }
-                    </View>
-                    <View>
-                        <Text>Musiques</Text>
-                    {
-                        data.musics && data.musics.length > 0 ?
-                            data.musics.map((titre: any, index: number)=>(
-                                <Text key={index}>{titre.titre}</Text>
-                            ))
-                        : null
-                    }
-                    </View>
-                    <View>
-                        <Text>Styles</Text>
-                    {
-                        data.styles && data.styles.length > 0 ?
-                            data.styles.map((style: any, index: number)=>(
-                                <Text key={index}>{style.nom}</Text>
-                            ))
-                        : null
-                    }
-                    </View>
+                }}>{
+                    fact.text ? 
+                        <View style={{
+                            flex: 1,
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap:20,
+                            width: "100%",
+                            padding: 40,
+                            margin: "auto",
+                            borderColor: "#00BF7C",
+                            borderWidth: 5,
+                            borderRadius: 20
+                        }}>
+                            <TextUi text={"Le saviez-vous ?"} type={"h"} priority={0}/>
+                            <TextUi text={fact.text} type={"h"} priority={3} />
+                        </View>
+                    :
+                        <View>
+                            <Text>Albums</Text>
+                        {
+                            data.length > 0 ?
+                                data.map((album: any, index: number)=>(
+                                    <Link href={{
+                                        pathname: '/Site/Details/[type]/[id]', 
+                                        params: { type: 'albums', id: album.id }
+                                    }} key={index}>{album.nom}</Link>
+                                ))
+                            : null
+                        }
+                        </View>
+                }
                 </View>
             </ScrollView>
         </View>
