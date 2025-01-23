@@ -46,6 +46,7 @@ export default function SignIn(){
             })
 
             const data= await response.json();
+            console.log(data);
             if(response.status==500){
                 setMessage('Email ou mot de passe incorrect');
             }
